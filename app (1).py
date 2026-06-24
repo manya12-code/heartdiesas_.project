@@ -73,9 +73,9 @@ with col1:
 
     age = st.number_input(
         "Age",
-        min_value=1,
-        max_value=120,
-        value=age
+        min_value=0,
+        
+        value=0
     )
 
     anaemia = st.selectbox(
