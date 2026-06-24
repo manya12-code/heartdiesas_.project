@@ -95,7 +95,7 @@ with col1:
         "Age",
         min_value=0,
         max_value=120,
-        value=int(st.session_state.age
+        value=int(st.session_state.age)
     )
 
     anaemia = st.selectbox(
