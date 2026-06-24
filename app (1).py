@@ -60,7 +60,9 @@ if uploaded_file is not None:
         st.image(image, caption="Uploaded Report")
 
     with col2:
-      text = pytesseract.image_to_string(image)
+    
+text=pytesseract.image_image_to_string(img)    
+    
 if text:  
     import re
     
