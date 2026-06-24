@@ -63,7 +63,7 @@ if uploaded_file is not None:
     
      text=pytesseract.image_image_to_string(img) 
       
-text=pytesseract.image_image_to_string(img)        
+text=pytesseract.image_to_string(img)        
 if text:  
     import re
     
