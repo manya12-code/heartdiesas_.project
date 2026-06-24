@@ -5,136 +5,112 @@ import pytesseract
 from PIL import Image
 import re
 
-# --- STEP 1: INITIALIZE SESSION STATE FOR ALL VARIABLES ---
-# Isse app crash ya rerun hone par data delete nahi hoga
-ml_keys = [
-    "age", "anaemia", "creatinine_phosphokinase", "diabetes", 
-    "high_blood_pressure", "platelets", "serum_creatinine", "serum_sodium"
-]
+# Load model + scaler
+model = pickle.load(open("logistic_model.pkl", "rb"))
+scaler = pickle.load(open("scaler.pkl", "rb"))
 
-for key in ml_keys:
-    if key not in st.session_state:
-        # Floats ke liye 0.0 baaki binary/integers ke liye 0 default value
-        st.session_state[key] = 0.0 if "creatinine" in key or "platelets" in key else 0
+st.set_page_config(page_title="Heart Disease AI + OCR", layout="wide")
 
-# --- STEP 2: LOAD MACHINE LEARNING MODEL ---
-# Apne pickle model file ka sahi path check kar lein
-try:
-    with open('model.pkl', 'rb') as f:
-        model = pickle.load(f)
-except FileNotFoundError:
-    model = None
-    st.error("Error: 'model.pkl' file nahi mili! Base directory me model file jodein.")
+st.title("🫀 Heart Disease Prediction System")
+st.subheader("AI + Medical Report OCR Auto-Fill")
 
-# --- STEP 3: APP UI HEADER DESIGN ---
-st.title("❤️ Heart Disease Prediction Using Blood Report")
-st.write("Upload a blood report and predict heart disease risk.")
+# ---------------- OCR FUNCTION ----------------
+def extract_values(text):
+    text = text.lower()
 
-# --- STEP 4: OCR SECTION (BLOOD REPORT UPLOAD) ---
-st.subheader("📄 Upload Blood Report")
-uploaded_file = st.file_uploader("Choose Report Image", type=["png", "jpg", "jpeg"])
+    def find_number(key):
+        match = re.search(key + r".*?(\d+)", text)
+        return int(match.group(1)) if match else 0
 
-if uploaded_file is not None:
-    img = Image.open(uploaded_file)
-    
-    # Spinner wrapper inside proper block indentation
-    with st.spinner("Extracting text from image..."):
-        # Fixed trailing Attribute errors and name definition parameters
-        text = pytesseract.image_to_string(img)
-        
-        if text:
-            # Regex templates matching common blood report labels
-            age_match = re.search(r"Age\s*:\s*(\d+)", text, re.IGNORECASE)
-            if age_match:
-                st.session_state.age = int(age_match.group(1))
-                
-            anaemia_match = re.search(r"Anaemia\s*:\s*(\d+)", text, re.IGNORECASE)
-            if anaemia_match:
-                st.session_state.anaemia = int(anaemia_match.group(1))
+    age = find_number("age")
+    trestbps = find_number("bp")
+    chol = find_number("chol")
+    thalach = find_number("heart rate")
+    oldpeak = find_number("oldpeak")
 
-            cpk_match = re.search(r"Phosphokinase\s*:\s*(\d+)", text, re.IGNORECASE)
-            if cpk_match:
-                st.session_state.creatinine_phosphokinase = int(cpk_match.group(1))
+    return age, trestbps, chol, thalach, oldpeak
 
-            diabetes_match = re.search(r"Diabetes\s*:\s*(\d+)", text, re.IGNORECASE)
-            if diabetes_match:
-                st.session_state.diabetes = int(diabetes_match.group(1))
 
-            bp_match = re.search(r"Blood\s*Pressure\s*:\s*(\d+)", text, re.IGNORECASE)
-            if bp_match:
-                st.session_state.high_blood_pressure = int(bp_match.group(1))
+# ---------------- OCR UPLOAD ----------------
+st.sidebar.header("📸 Upload Medical Report")
 
-            platelets_match = re.search(r"Platelets\s*:\s*([\d\.]+)", text, re.IGNORECASE)
-            if platelets_match:
-                st.session_state.platelets = float(platelets_match.group(1))
+img_file = st.sidebar.file_uploader("Upload Image", type=["png", "jpg", "jpeg"])
 
-            sc_match = re.search(r"Serum\s*Creatinine\s*:\s*([\d\.]+)", text, re.IGNORECASE)
-            if sc_match:
-                st.session_state.serum_creatinine = float(sc_match.group(1))
+age = 30
+trestbps = 120
+chol = 200
+thalach = 150
+oldpeak = 1.0
 
-            sodium_match = re.search(r"Sodium\s*:\s*(\d+)", text, re.IGNORECASE)
-            if sodium_match:
-                st.session_state.serum_sodium = int(sodium_match.group(1))
+if img_file is not None:
+    image = Image.open(img_file)
+    st.image(image, caption="Uploaded Report", use_container_width=True)
 
-            st.success("Data successfully extracted! Inputs fields below have been updated.")
-            st.rerun()
+    text = pytesseract.image_to_string(image)
 
-# --- STEP 5: DYNAMIC INPUT FIELDS (CONNECTED TO STATE) ---
-st.subheader("🩺 Patient Health Parameters")
+    st.text_area("Extracted Text", text, height=200)
 
-col1, col2 = st.columns(2)
+    ocr_age, ocr_bp, ocr_chol, ocr_hr, ocr_oldpeak = extract_values(text)
 
-with col1:
-    age = st.number_input(
-        "Age", min_value=0, max_value=120, value=int(st.session_state.age)
-    )
-    anaemia = st.selectbox(
-        "Anaemia", options=["No", "Yes"], index=0 if st.session_state.anaemia == 0 else 1
-    )
-    creatinine_phosphokinase = st.number_input(
-        "Creatinine Phosphokinase (CPK)", min_value=0, value=int(st.session_state.creatinine_phosphokinase)
-    )
-    diabetes = st.selectbox(
-        "Diabetes", options=["No", "Yes"], index=0 if st.session_state.diabetes == 0 else 1
-    )
+    age = ocr_age or age
+    trestbps = ocr_bp or trestbps
+    chol = ocr_chol or chol
+    thalach = ocr_hr or thalach
+    oldpeak = ocr_oldpeak or oldpeak
 
-with col2:
-    high_blood_pressure = st.selectbox(
-        "High Blood Pressure", options=["No", "Yes"], index=0 if st.session_state.high_blood_pressure == 0 else 1
-    )
-    platelets = st.number_input(
-        "Platelets Count", min_value=0.0, value=float(st.session_state.platelets)
-    )
-    serum_creatinine = st.number_input(
-        "Serum Creatinine Level", min_value=0.0, value=float(st.session_state.serum_creatinine)
-    )
-    serum_sodium = st.number_input(
-        "Serum Sodium Level", min_value=0, value=int(st.session_state.serum_sodium)
-    )
+    st.success("✅ OCR Auto-Fill Applied")
 
-# --- STEP 6: PREDICTION WORKFLOW ---
-st.markdown("---")
-if st.button("Predict Heart Failure Risk", type="primary"):
-    if model is not None:
-        # Text/Dropdown values map into Model Binary Matrix (Yes=1, No=0)
-        anaemia_val = 1 if anaemia == "Yes" else 0
-        diabetes_val = 1 if diabetes == "Yes" else 0
-        hbp_val = 1 if high_blood_pressure == "Yes" else 0
-        
-        # Features array sequencing according to model training architecture
-        features = np.array([[
-            age, anaemia_val, creatinine_phosphokinase, diabetes_val, 
-            high_blood_pressure_val, platelets, serum_creatinine, serum_sodium
-        ]])
-        
-        prediction = model.predict(features)
-        
-        # Result analysis block display
-        if prediction[0] == 1:
-            st.error("⚠️ High Risk: Report suggests tendencies towards cardiovascular vulnerability.")
-        else:
-            st.success("✅ Low Risk: Patient features map standard range benchmarks.")
+
+# ---------------- INPUT UI ----------------
+st.sidebar.header("Manual Inputs (Override OCR)")
+
+age = st.sidebar.slider("Age", 1, 100, age)
+sex = st.sidebar.selectbox("Sex", ["Male", "Female"])
+cp = st.sidebar.selectbox("Chest Pain Type", [0,1,2,3])
+
+trestbps = st.sidebar.number_input("Resting BP", 80, 200, trestbps)
+chol = st.sidebar.number_input("Cholesterol", 100, 600, chol)
+
+fbs = st.sidebar.selectbox("Fasting Blood Sugar >120", ["Yes","No"])
+restecg = st.sidebar.selectbox("Resting ECG", [0,1,2])
+
+thalach = st.sidebar.slider("Max Heart Rate", 60, 220, thalach)
+exang = st.sidebar.selectbox("Exercise Angina", ["Yes","No"])
+
+oldpeak = st.sidebar.slider("Oldpeak", 0.0, 6.0, float(oldpeak))
+slope = st.sidebar.selectbox("Slope", [0,1,2])
+ca = st.sidebar.selectbox("Major Vessels", [0,1,2,3])
+
+# ---------------- CONVERT ----------------
+sex = 1 if sex == "Male" else 0
+fbs = 1 if fbs == "Yes" else 0
+exang = 1 if exang == "Yes" else 0
+
+# ---------------- PREDICTION ----------------
+if st.sidebar.button("🔍 Predict Risk"):
+
+    input_data = np.array([[
+        age, sex, cp, trestbps, chol,
+        fbs, restecg, thalach, exang,
+        oldpeak, slope, ca
+    ]])
+
+    scaled = scaler.transform(input_data)
+
+    prediction = model.predict(scaled)[0]
+    prob = model.predict_proba(scaled)[0][1]
+
+    st.markdown("## 🧾 Result")
+
+    if prediction == 1:
+        st.error("🔴 High Risk of Heart Disease")
     else:
-        st.warning("Model file not configured properly. Cannot trigger prediction pipeline.")
+        st.success("🟢 No Risk of Heart Disease")
+
+    st.write(f"Probability: {round(prob*100,2)}%")
+    st.progress(int(prob*100))
+
+else:
+    st.info("Upload report OR enter values and click Predict")
    
        
