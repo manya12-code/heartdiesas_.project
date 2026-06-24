@@ -62,7 +62,7 @@ if uploaded_file is not None:
     with col2:
     
      text=pytesseract.image_image_to_string(img)    
-    
+ text=pytesseract.image_image_to_string(img)        
 if text:  
     import re
     
