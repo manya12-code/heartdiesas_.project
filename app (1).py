@@ -75,7 +75,7 @@ if text:
     if platelets_match:
         st.session_state.platelets = float(platelets_match.group(1))
     st.rerun()
-   st.write("### OCR Extracted Text")
+    st.write("### OCR Extracted Text")
         st.text_area(
             "Extracted Text",
             text,
