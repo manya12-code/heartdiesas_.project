@@ -1,116 +1,103 @@
 import streamlit as st
 import numpy as np
 import pickle
-import pytesseract
 from PIL import Image
+import pytesseract
 import re
 
-# Load model + scaler
+# ---------------- LOAD MODEL ----------------
 model = pickle.load(open("logistic_model.pkl", "rb"))
 scaler = pickle.load(open("scaler.pkl", "rb"))
 
-st.set_page_config(page_title="Heart Disease AI + OCR", layout="wide")
+st.set_page_config(page_title="Heart Failure Prediction", layout="wide")
 
-st.title("🫀 Heart Disease Prediction System")
-st.subheader("AI + Medical Report OCR Auto-Fill")
+st.title("🏥 Heart Failure Risk Prediction System")
+st.markdown("### AI-based Medical Risk Analyzer")
 
-# ---------------- OCR FUNCTION ----------------
-def extract_values(text):
+# ---------------- OCR (ONLY AGE OPTIONAL) ----------------
+def extract_age(text):
     text = text.lower()
-
-    def find_number(key):
-        match = re.search(key + r".*?(\d+)", text)
-        return int(match.group(1)) if match else 0
-
-    age = find_number("age")
-    trestbps = find_number("bp")
-    chol = find_number("chol")
-    thalach = find_number("heart rate")
-    oldpeak = find_number("oldpeak")
-
-    return age, trestbps, chol, thalach, oldpeak
+    match = re.search(r"age\D*(\d+)", text)
+    return int(match.group(1)) if match else None
 
 
-# ---------------- OCR UPLOAD ----------------
-st.sidebar.header("📸 Upload Medical Report")
+# ---------------- SIDEBAR ----------------
+st.sidebar.header("📋 Patient Input Form")
 
-img_file = st.sidebar.file_uploader("Upload Image", type=["png", "jpg", "jpeg"])
+img_file = st.sidebar.file_uploader("📸 Upload Report (Optional)", type=["png", "jpg", "jpeg"])
 
-age = 30
-trestbps = 120
-chol = 200
-thalach = 150
-oldpeak = 1.0
+age = 50  # default fallback
 
 if img_file is not None:
     image = Image.open(img_file)
-    st.image(image, caption="Uploaded Report", use_container_width=True)
+    st.image(image, caption="Uploaded Report")
 
     text = pytesseract.image_to_string(image)
-
     st.text_area("Extracted Text", text, height=200)
 
-    ocr_age, ocr_bp, ocr_chol, ocr_hr, ocr_oldpeak = extract_values(text)
-
-    age = ocr_age or age
-    trestbps = ocr_bp or trestbps
-    chol = ocr_chol or chol
-    thalach = ocr_hr or thalach
-    oldpeak = ocr_oldpeak or oldpeak
-
-    st.success("✅ OCR Auto-Fill Applied")
+    ocr_age = extract_age(text)
+    if ocr_age is not None:
+        age = ocr_age
+        st.success(f"✅ Age extracted: {age}")
 
 
-# ---------------- INPUT UI ----------------
-st.sidebar.header("Manual Inputs (Override OCR)")
-
+# ---------------- INPUTS ----------------
 age = st.sidebar.slider("Age", 1, 100, age)
-sex = st.sidebar.selectbox("Sex", ["Male", "Female"])
-cp = st.sidebar.selectbox("Chest Pain Type", [0,1,2,3])
 
-trestbps = st.sidebar.number_input("Resting BP", 80, 200, trestbps)
-chol = st.sidebar.number_input("Cholesterol", 100, 600, chol)
-
-fbs = st.sidebar.selectbox("Fasting Blood Sugar >120", ["Yes","No"])
-restecg = st.sidebar.selectbox("Resting ECG", [0,1,2])
-
-thalach = st.sidebar.slider("Max Heart Rate", 60, 220, thalach)
-exang = st.sidebar.selectbox("Exercise Angina", ["Yes","No"])
-
-oldpeak = st.sidebar.slider("Oldpeak", 0.0, 6.0, float(oldpeak))
-slope = st.sidebar.selectbox("Slope", [0,1,2])
-ca = st.sidebar.selectbox("Major Vessels", [0,1,2,3])
+anaemia = st.sidebar.selectbox("Anaemia", ["No", "Yes"])
+creatinine_phosphokinase = st.sidebar.number_input("Creatinine Phosphokinase", 0, 8000, 100)
+diabetes = st.sidebar.selectbox("Diabetes", ["No", "Yes"])
+ejection_fraction = st.sidebar.slider("Ejection Fraction", 10, 80, 38)
+high_blood_pressure = st.sidebar.selectbox("High Blood Pressure", ["No", "Yes"])
+platelets = st.sidebar.number_input("Platelets", 10000, 1000000, 250000)
+serum_creatinine = st.sidebar.number_input("Serum Creatinine", 0.1, 10.0, 1.0)
+serum_sodium = st.sidebar.slider("Serum Sodium", 100, 150, 137)
+sex = st.sidebar.selectbox("Sex", ["Female", "Male"])
+smoking = st.sidebar.selectbox("Smoking", ["No", "Yes"])
+time = st.sidebar.slider("Follow-up Time (days)", 0, 300, 100)
 
 # ---------------- CONVERT ----------------
+anaemia = 1 if anaemia == "Yes" else 0
+diabetes = 1 if diabetes == "Yes" else 0
+high_blood_pressure = 1 if high_blood_pressure == "Yes" else 0
 sex = 1 if sex == "Male" else 0
-fbs = 1 if fbs == "Yes" else 0
-exang = 1 if exang == "Yes" else 0
+smoking = 1 if smoking == "Yes" else 0
+
 
 # ---------------- PREDICTION ----------------
 if st.sidebar.button("🔍 Predict Risk"):
 
     input_data = np.array([[
-        age, sex, cp, trestbps, chol,
-        fbs, restecg, thalach, exang,
-        oldpeak, slope, ca
+        age,
+        anaemia,
+        creatinine_phosphokinase,
+        diabetes,
+        ejection_fraction,
+        high_blood_pressure,
+        platelets,
+        serum_creatinine,
+        serum_sodium,
+        sex,
+        smoking,
+        time
     ]])
 
     scaled = scaler.transform(input_data)
-
     prediction = model.predict(scaled)[0]
     prob = model.predict_proba(scaled)[0][1]
 
     st.markdown("## 🧾 Result")
 
     if prediction == 1:
-        st.error("🔴 High Risk of Heart Disease")
+        st.error("🔴 High Risk of Heart Failure")
     else:
-        st.success("🟢 No Risk of Heart Disease")
+        st.success("🟢 Low Risk of Heart Failure")
 
-    st.write(f"Probability: {round(prob*100,2)}%")
-    st.progress(int(prob*100))
+    st.write(f"### Probability: {round(prob*100, 2)}%")
+    st.progress(int(prob * 100))
 
+    st.markdown("---")
+    st.info("⚠️ Disclaimer: This is an AI prediction tool, not a medical diagnosis.")
 else:
-    st.info("Upload report OR enter values and click Predict")
-   
-       
+    st.info("👈 Enter patient data and click Predict")
+  
