@@ -74,10 +74,7 @@ if text:
     platelets_match = re.search(r"Platelets\s*:\s*([\d\.]+)", text, re.IGNORECASE)
     if platelets_match:
         st.session_state.platelets = float(platelets_match.group(1))
-        
-    
     st.rerun()
-
         st.write("### OCR Extracted Text")
         st.text_area(
             "Extracted Text",
