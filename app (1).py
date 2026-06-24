@@ -36,11 +36,11 @@ uploaded_file = st.file_uploader(
 )
 
 # Default values
-age = 50
-sex = 1
-platelets = 250000
-serum_creatinine = 1.2
-serum_sodium = 135
+age = 0
+sex = 0
+platelets = 0
+serum_creatinine = 0
+serum_sodium = 0
 
 # ---------------- OCR SECTION ----------------
 if uploaded_file is not None:
