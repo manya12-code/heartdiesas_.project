@@ -5,6 +5,13 @@ import pandas as pd
 import pytesseract
 from PIL import Image
 import matplotlib.pyplot as plt
+keys_to_init = ["age", "anaemia", "creatinine_phosphokinase", "diabetes", 
+                "high_blood_pressure", "platelets", "serum_creatinine", "serum_sodium"]
+
+for key in keys_to_init:
+    if key not in st.session_state:
+        
+        st.session_state[key] = 0.0 if "creatinine" in key or "platelets" in key else 0
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -54,6 +61,22 @@ if uploaded_file is not None:
 
     with col2:
         text = pytesseract.image_to_string(image)
+        
+if text:  
+    import re
+    
+    
+    age_match = re.search(r"Age\s*:\s*(\d+)", text, re.IGNORECASE)
+    if age_match:
+        st.session_state.age = int(age_match.group(1))
+        
+    
+    platelets_match = re.search(r"Platelets\s*:\s*([\d\.]+)", text, re.IGNORECASE)
+    if platelets_match:
+        st.session_state.platelets = float(platelets_match.group(1))
+        
+    
+    st.rerun()
 
         st.write("### OCR Extracted Text")
         st.text_area(
@@ -74,18 +97,21 @@ with col1:
     age = st.number_input(
         "Age",
         min_value=0,
-        
-        value=0
+        max_value=120,
+        value=int(st.session_state.age
     )
 
     anaemia = st.selectbox(
         "Anaemia",
-        [0, 1]
+        option= [0, 1],
+        index= 0 if st.session_state.anaemia==0
+                    else 1
     )
 
     creatinine_phosphokinase = st.number_input(
         "Creatinine Phosphokinase",
-        value=250
+        min_value=0,
+        value=int(st.session_state.creatinine_phosphokinase)
     )
 
     diabetes = st.selectbox(
@@ -107,17 +133,18 @@ with col2:
 
     platelets = st.number_input(
         "Platelets",
-        value=platelets
+        min_value=0.0,
+        value=flaot(st.session_state.platelets)
     )
 
     serum_creatinine = st.number_input(
         "Serum Creatinine",
-        value=float(serum_creatinine)
+        value=float(st.session_state.serum_creatinine)
     )
 
     serum_sodium = st.number_input(
         "Serum Sodium",
-        value=int(serum_sodium)
+        value=int(st.session_state.serum_sodium)
     )
 
     sex = st.selectbox(
